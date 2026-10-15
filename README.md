@@ -11,7 +11,8 @@ A minimal bike computer for iPhone (SwiftUI, iOS 17+).
 1. **Clock**: a large 24h `HH:mm` clock, with seconds in small type beside it.
 2. **Weather**: a small box next to the clock with an icon for the current conditions (from [Open-Meteo](https://open-meteo.com), free, no API key needed). It refreshes every 15 minutes, or after you have ridden 5 km.
 3. **Now playing**: title, artist and artwork from Apple Music, with large glove-friendly previous / play-pause / next buttons. It only appears while music is playing (and for 15 seconds after you pause), and animates in and out. When it's hidden, the map grows to fill the space.
-4. **Map**: an Apple Maps image of your surroundings, recoloured into the two SPARROW colours. Your position is the arrow in the middle, and the map turns so the direction you're riding points up. Pinch to zoom. It refreshes as you move or turn.
+4. **Map**: a smooth live Apple Map in the dark, muted style with a light tint of the SPARROW background colour. It follows your position and turns with your heading. Panning stops the follow mode, and a button brings it back.
+5. **Speed**: a small km/h readout under the map. It uses the GPS that's already running for the map, so it adds no noticeable battery use.
 
 The screen stays awake while SPARROW is open.
 
@@ -22,7 +23,7 @@ The screen stays awake while SPARROW is open.
 | Background (red in the reference) | `#43464C` |
 | Lettering, panels and map lines (black in the reference) | `#ADB8C7` |
 
-They are defined in `Sparrow/Theme.swift`. How strongly the map is recoloured is set by `contrastRange` in `Sparrow/MapSnapshotModel.swift`.
+They are defined in `Sparrow/Theme.swift`. How strongly the map is tinted is set by `tintOpacity` in `Sparrow/RideMapView.swift`.
 
 ## Running it
 

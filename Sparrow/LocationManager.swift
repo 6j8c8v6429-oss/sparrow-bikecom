@@ -1,36 +1,39 @@
 import CoreLocation
+import Observation
 
-/// Asks for location permission and publishes the latest position and travel direction.
-final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
-    @Published private(set) var location: CLLocation?
-    /// Direction of travel in degrees from north: GPS course while riding, compass when standing still.
-    @Published private(set) var heading: CLLocationDirection = 0
+/// Asks for location permission and keeps the latest position and speed.
+///
+/// `@Observable` so that only views that read `speed` redraw on each GPS update (about once a
+/// second), not the whole screen. The GPS is running for the map anyway, so the speed is free.
+@Observable
+final class LocationManager: NSObject, CLLocationManagerDelegate {
+    private(set) var location: CLLocation?
+    /// Current speed in m/s, or nil when unknown.
+    private(set) var speed: CLLocationSpeed?
 
-    /// Below this speed (m/s) the GPS course is unreliable, so the compass is used instead.
-    private static let minimumCourseSpeed: CLLocationSpeed = 1.5
+    /// Called with every new position (used for the weather).
+    @ObservationIgnored var onLocation: (@MainActor (CLLocation) -> Void)?
 
-    private let manager = CLLocationManager()
+    @ObservationIgnored private let manager = CLLocationManager()
 
     override init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.activityType = .fitness
-        manager.distanceFilter = 5
-        manager.headingFilter = 10
+        // Updates keep coming while standing still, so the speed drops back to 0.
+        manager.distanceFilter = kCLDistanceFilterNone
     }
 
     func start() {
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
-        manager.startUpdatingHeading()
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             manager.startUpdatingLocation()
-            manager.startUpdatingHeading()
         default:
             break
         }
@@ -39,14 +42,10 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let latest = locations.last else { return }
         location = latest
-        if latest.course >= 0, latest.speed >= Self.minimumCourseSpeed {
-            heading = latest.course
-        }
-    }
-
-    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
-        if let speed = location?.speed, speed >= Self.minimumCourseSpeed { return }
-        heading = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
+        let newSpeed: CLLocationSpeed? = latest.speed >= 0 ? latest.speed : nil
+        if newSpeed != speed { speed = newSpeed }
+        // The manager is created on the main thread, so its callbacks arrive there too.
+        MainActor.assumeIsolated { onLocation?(latest) }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}

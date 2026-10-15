@@ -1,72 +1,51 @@
+import MapKit
 import SwiftUI
 
-/// Small heading-up map in the SPARROW palette. Your position is always the centre arrow,
-/// and the map turns so that the direction you ride points up. Pinch to zoom.
+/// Small live map that follows you and turns with your direction, tinted toward the SPARROW palette.
 struct RideMapView: View {
-    @ObservedObject var location: LocationManager
-    @StateObject private var snapshots = MapSnapshotModel()
-    @Environment(\.displayScale) private var displayScale
-    @State private var size: CGSize = .zero
-    @GestureState private var pinch: CGFloat = 1
+    @State private var position: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
+
+    /// Strength of the palette tint over the map. Higher is closer to `Theme.base`, but fainter roads.
+    private static let tintOpacity = 0.35
 
     var body: some View {
-        Theme.base
-            .overlay {
-                if let image = snapshots.image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .scaleEffect(pinch)
-                        .id(snapshots.version)
-                        .transition(.opacity)
-                } else {
-                    Text(location.location == nil ? "LOCATING…" : "LOADING MAP…")
-                        .font(Theme.font(16, weight: .semibold))
-                        .tracking(1.5)
-                        .opacity(0.7)
-                }
-            }
-            .animation(.easeInOut(duration: 0.35), value: snapshots.version)
-            .overlay {
+        Map(position: $position, interactionModes: [.zoom, .pan]) {
+            UserAnnotation {
                 Image(systemName: "location.north.fill")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(Theme.ink)
-                    .background {
-                        Image(systemName: "location.north.fill")
-                            .font(.system(size: 36, weight: .bold))
-                            .foregroundStyle(Theme.base)
-                    }
-                    .opacity(location.location == nil ? 0 : 1)
             }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                    .strokeBorder(Theme.ink.opacity(0.4), lineWidth: 1.5)
+        }
+        .mapStyle(.standard(elevation: .flat, emphasis: .muted,
+                            pointsOfInterest: .excludingAll, showsTraffic: false))
+        .mapControls {}
+        .environment(\.colorScheme, .dark)
+        // A plain see-through layer, composited normally. Never use a blend mode here: on device
+        // that hides the map tiles and leaves only the arrow.
+        .overlay {
+            Theme.base
+                .opacity(Self.tintOpacity)
+                .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                .strokeBorder(Theme.ink.opacity(0.4), lineWidth: 1.5)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if !position.followsUserLocation {
+                Button {
+                    withAnimation { position = .userLocation(followsHeading: true, fallback: .automatic) }
+                } label: {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(Theme.base)
+                        .frame(width: 52, height: 52)
+                        .background(Theme.ink, in: RoundedRectangle(cornerRadius: 6))
+                }
+                .padding(10)
+                .accessibilityLabel("Follow my location")
             }
-            .contentShape(Rectangle())
-            .gesture(
-                MagnifyGesture()
-                    .updating($pinch) { value, state, _ in state = value.magnification }
-                    .onEnded { value in
-                        let range = MapSnapshotModel.distanceRange
-                        snapshots.distance = min(max(snapshots.distance / value.magnification, range.lowerBound),
-                                                 range.upperBound)
-                        refresh()
-                    }
-            )
-            .onGeometryChange(for: CGSize.self) { $0.size } action: { newSize in
-                size = newSize
-                refresh()
-            }
-            .onChange(of: location.location) { _, _ in refresh() }
-            .onChange(of: location.heading) { _, _ in refresh() }
-            .onAppear(perform: refresh)
-            .accessibilityElement()
-            .accessibilityLabel("Map of your surroundings")
-    }
-
-    private func refresh() {
-        snapshots.update(location: location.location, heading: location.heading,
-                         size: size, scale: displayScale)
+        }
     }
 }

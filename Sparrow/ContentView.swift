@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var location = LocationManager()
+    @State private var location = LocationManager()
     @StateObject private var weather = WeatherService()
     @StateObject private var nowPlaying = NowPlayingModel()
     @Environment(\.scenePhase) private var scenePhase
@@ -17,7 +17,8 @@ struct ContentView: View {
                     .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
             }
             // Takes all remaining space, so it grows when the now-playing panel goes away.
-            RideMapView(location: location)
+            RideMapView()
+            SpeedView(location: location)
         }
         .animation(.spring(duration: 0.55, bounce: 0.15), value: nowPlaying.isVisible)
         .padding(.horizontal, 16)
@@ -26,6 +27,7 @@ struct ContentView: View {
         .background(Theme.base.ignoresSafeArea())
         .foregroundStyle(Theme.ink)
         .onAppear {
+            location.onLocation = { [weather] in weather.update(for: $0) }
             location.start()
             keepScreenAwake(true)
         }
@@ -33,7 +35,6 @@ struct ContentView: View {
             keepScreenAwake(phase == .active)
             if phase == .active { nowPlaying.refresh() }
         }
-        .onReceive(location.$location.compactMap { $0 }) { weather.update(for: $0) }
         .task {
             // Re-check the weather now and then, even when standing still.
             while !Task.isCancelled {
