@@ -8,7 +8,7 @@ struct RideMapView: View {
     @State private var recenterRequest = 0
 
     /// Strength of the palette tint over the map. Higher is closer to `Theme.base`, but fainter roads.
-    private static let tintOpacity = 0.35
+    fileprivate static let tintOpacity = 0.35
 
     var body: some View {
         FollowingMap(isFollowing: $isFollowing, recenterRequest: recenterRequest)
@@ -41,6 +41,14 @@ struct RideMapView: View {
                 }
             }
             .animation(.easeOut(duration: 0.2), value: isFollowing)
+    }
+}
+
+private extension UIColor {
+    var rgba: (r: CGFloat, g: CGFloat, b: CGFloat) {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (r, g, b)
     }
 }
 
@@ -117,15 +125,41 @@ private struct FollowingMap: UIViewRepresentable {
             isFollowing.wrappedValue = mode != .none
         }
 
+        /// The arrow is drawn by hand rather than from an SF Symbol, which turned out black on the map.
+        /// The tint overlay sits on top of the whole map and would dull the arrow, so its colour is
+        /// brightened to cancel that out and show as exactly `Theme.ink` on screen.
+        private static let arrowImage: UIImage = {
+            func channel(_ ink: CGFloat, _ base: CGFloat) -> CGFloat {
+                let opacity = CGFloat(RideMapView.tintOpacity)
+                return min(max((ink - opacity * base) / (1 - opacity), 0), 1)
+            }
+            let ink = UIColor(Theme.ink).rgba, base = UIColor(Theme.base).rgba
+            let color = UIColor(red: channel(ink.r, base.r), green: channel(ink.g, base.g),
+                                blue: channel(ink.b, base.b), alpha: 1)
+            let size = CGSize(width: 34, height: 40)
+            return UIGraphicsImageRenderer(size: size).image { _ in
+                let path = UIBezierPath()
+                path.move(to: CGPoint(x: size.width / 2, y: 1))
+                path.addLine(to: CGPoint(x: size.width - 2, y: size.height - 2))
+                path.addLine(to: CGPoint(x: size.width / 2, y: size.height * 0.78))
+                path.addLine(to: CGPoint(x: 2, y: size.height - 2))
+                path.close()
+                path.lineJoinStyle = .round
+                path.lineWidth = 3
+                color.setFill()
+                color.setStroke()
+                path.fill()
+                path.stroke()
+            }
+        }()
+
         /// Your position is drawn as an arrow in the SPARROW colour.
         func mapView(_ map: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard annotation is MKUserLocation else { return nil }
             let id = "sparrow.user"
             let view = map.dequeueReusableAnnotationView(withIdentifier: id)
                 ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
-            let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .bold)
-            view.image = UIImage(systemName: "location.north.fill", withConfiguration: configuration)?
-                .withTintColor(UIColor(Theme.ink), renderingMode: .alwaysOriginal)
+            view.image = Self.arrowImage
             view.canShowCallout = false
             view.isEnabled = false
             return view
