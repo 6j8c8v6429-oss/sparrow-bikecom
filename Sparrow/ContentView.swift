@@ -12,9 +12,14 @@ struct ContentView: View {
                 ClockView()
                 WeatherBadge(condition: weather.condition)
             }
-            NowPlayingView(model: nowPlaying)
-            RideMapView()
+            if nowPlaying.isVisible {
+                NowPlayingView(model: nowPlaying)
+                    .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
+            }
+            // Takes all remaining space, so it grows when the now-playing panel goes away.
+            RideMapView(location: location)
         }
+        .animation(.spring(duration: 0.55, bounce: 0.15), value: nowPlaying.isVisible)
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 12)

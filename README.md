@@ -10,8 +10,8 @@ A minimal bike computer for iPhone (SwiftUI, iOS 17+).
 
 1. **Clock**: a large 24h `HH:mm` clock, with seconds in small type beside it.
 2. **Weather**: a small box next to the clock with an icon for the current conditions (from [Open-Meteo](https://open-meteo.com), free, no API key needed). It refreshes every 15 minutes, or after you have ridden 5 km.
-3. **Now playing**: title, artist and artwork from Apple Music, with large glove-friendly previous / play-pause / next buttons.
-4. **Map**: a muted Apple Map that follows your position and rotates with your heading. Panning stops the follow mode, and a button brings it back.
+3. **Now playing**: title, artist and artwork from Apple Music, with large glove-friendly previous / play-pause / next buttons. It only appears while music is playing (and for 15 seconds after you pause), and animates in and out. When it's hidden, the map grows to fill the space.
+4. **Map**: an Apple Maps image of your surroundings, recoloured into the two SPARROW colours. Your position is the arrow in the middle, and the map turns so the direction you're riding points up. Pinch to zoom. It refreshes as you move or turn.
 
 The screen stays awake while SPARROW is open.
 
@@ -22,7 +22,7 @@ The screen stays awake while SPARROW is open.
 | Background (red in the reference) | `#43464C` |
 | Lettering, panels and map lines (black in the reference) | `#ADB8C7` |
 
-They are defined in `Sparrow/Theme.swift`.
+They are defined in `Sparrow/Theme.swift`. How strongly the map is recoloured is set by `darkLevel` and `lightLevel` in `Sparrow/MapSnapshotModel.swift`.
 
 ## Running it
 
@@ -34,4 +34,4 @@ On first launch, iOS asks for permission to use your **location** (for the map a
 
 ## Known limitation: podcasts
 
-iOS only lets other apps read and control the **Apple Music** player. What's playing in Apple Podcasts, Spotify, or other apps can't be read by a third-party app, so in that case the panel shows "Nothing playing".
+iOS only lets other apps read and control the **Apple Music** player. What's playing in Apple Podcasts, Spotify, or other apps can't be read by a third-party app, so the panel stays hidden for those. (Apple's own system code for this is private and blocked for third-party apps.)
