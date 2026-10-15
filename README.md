@@ -11,7 +11,7 @@ A minimal bike computer for iPhone (SwiftUI, iOS 17+).
 1. **Clock**: a large 24h `HH:mm` clock, with seconds in small type beside it.
 2. **Weather**: a small box next to the clock with an icon for the current conditions (from [Open-Meteo](https://open-meteo.com), free, no API key needed). It refreshes every 15 minutes, or after you have ridden 5 km.
 3. **Now playing**: title, artist and artwork from Apple Music, with large glove-friendly previous / play-pause / next buttons. It only appears while music is playing (and for 15 seconds after you pause), and animates in and out. When it's hidden, the map grows to fill the space.
-4. **Map**: a smooth live Apple Map in the dark, muted style with a light tint of the SPARROW background colour. It follows your position and turns with your heading. Panning stops the follow mode, and a button brings it back.
+4. **Map**: a smooth live 3D Apple Map (tilted, with 3D buildings) in the dark, muted style with a light tint of the SPARROW background colour. It starts centred on you and turns so that the direction you face points up. Dragging the map stops the follow mode, and a button brings it back. Two-finger drag up or down changes the tilt.
 5. **Speed**: a small km/h readout under the map. It uses the GPS that's already running for the map, so it adds no noticeable battery use.
 
 The screen stays awake while SPARROW is open.
