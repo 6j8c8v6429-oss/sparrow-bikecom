@@ -22,7 +22,7 @@ The screen stays awake while SPARROW is open.
 | Background (red in the reference) | `#43464C` |
 | Lettering, panels and map lines (black in the reference) | `#ADB8C7` |
 
-They are defined in `Sparrow/Theme.swift`. How strongly the map is recoloured is set by `darkLevel` and `lightLevel` in `Sparrow/MapSnapshotModel.swift`.
+They are defined in `Sparrow/Theme.swift`. How strongly the map is recoloured is set by `contrastRange` in `Sparrow/MapSnapshotModel.swift`.
 
 ## Running it
 

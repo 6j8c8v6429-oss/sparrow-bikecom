@@ -27,8 +27,6 @@ final class MapSnapshotModel: ObservableObject {
     private var queued: Request?
     private var isRendering = false
 
-    private static let ciContext = CIContext()
-
     func update(location: CLLocation?, heading: CLLocationDirection, size: CGSize, scale: CGFloat) {
         guard let location, size.width > 1, size.height > 1 else { return }
         let request = Request(location: location, heading: heading, size: size, scale: scale, distance: distance)
@@ -74,9 +72,13 @@ final class MapSnapshotModel: ObservableObject {
         MKMapSnapshotter(options: options).start { [weak self] snapshot, _ in
             Task { @MainActor in
                 guard let self else { return }
-                if let snapshot, let tinted = Self.tint(snapshot.image) {
-                    self.image = tinted
+                if let snapshot {
+                    // Fall back to the plain dark map if recolouring fails, rather than show nothing.
+                    self.image = Self.tint(snapshot.image) ?? snapshot.image
                     self.version += 1
+                } else {
+                    // Failed (e.g. no signal yet): forget it so the next update tries again.
+                    self.lastRendered = nil
                 }
                 self.isRendering = false
                 if let next = self.queued {
@@ -89,18 +91,28 @@ final class MapSnapshotModel: ObservableObject {
 
     // MARK: Recolouring
 
-    /// Map brightness range that gets stretched over base → ink. The dark map's land sits near
-    /// the low end and its roads and labels near the high end. Tweak these to taste.
-    private static let darkLevel: CGFloat = 0.12
-    private static let lightLevel: CGFloat = 0.55
+    /// No colour management: filters work on the plain sRGB values you see on screen. With the
+    /// default (linear) working space the dark map's values are so low that everything ended up
+    /// as the background colour and the map looked empty.
+    private static let ciContext = CIContext(options: [.workingColorSpace: NSNull()])
+
+    /// Brightness range above the land colour that gets stretched over base → ink.
+    /// Smaller means brighter, bolder roads.
+    private static let contrastRange: CGFloat = 0.3
 
     /// Turns the dark map into a two-tone map: land becomes `Theme.base`, roads and labels `Theme.ink`.
     private static func tint(_ image: UIImage) -> UIImage? {
         guard let input = CIImage(image: image) else { return nil }
-        let gain = 1 / (lightLevel - darkLevel)
+        let gray = input.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
+
+        // Land covers most of the map, so the average brightness is about the land colour.
+        // Measuring it keeps the result right whatever shade Apple uses for the dark map.
+        let land = averageBrightness(of: gray) ?? 0.15
+        let darkLevel = max(land - 0.02, 0)
+        let gain = 1 / contrastRange
         let bias = -darkLevel * gain
-        let output = input
-            .applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
+
+        let output = gray
             .applyingFilter("CIColorMatrix", parameters: [
                 "inputRVector": CIVector(x: gain, y: 0, z: 0, w: 0),
                 "inputGVector": CIVector(x: 0, y: gain, z: 0, w: 0),
@@ -109,11 +121,22 @@ final class MapSnapshotModel: ObservableObject {
             ])
             .applyingFilter("CIColorClamp")
             .applyingFilter("CIFalseColor", parameters: [
-                "inputColor0": CIColor(color: UIColor(Theme.base)),
-                "inputColor1": CIColor(color: UIColor(Theme.ink)),
+                "inputColor0": CIColor(red: 0x43 / 255, green: 0x46 / 255, blue: 0x4C / 255),
+                "inputColor1": CIColor(red: 0xAD / 255, green: 0xB8 / 255, blue: 0xC7 / 255),
             ])
         guard let cgImage = ciContext.createCGImage(output, from: input.extent) else { return nil }
         return UIImage(cgImage: cgImage, scale: image.scale, orientation: .up)
+    }
+
+    private static func averageBrightness(of image: CIImage) -> CGFloat? {
+        let average = image.applyingFilter("CIAreaAverage", parameters: [
+            kCIInputExtentKey: CIVector(cgRect: image.extent),
+        ])
+        var pixel = [UInt8](repeating: 0, count: 4)
+        ciContext.render(average, toBitmap: &pixel, rowBytes: 4,
+                         bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                         format: .RGBA8, colorSpace: nil)
+        return CGFloat(pixel[0]) / 255
     }
 
     private func angleDifference(_ a: Double, _ b: Double) -> Double {
