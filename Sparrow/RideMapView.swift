@@ -16,12 +16,9 @@ struct RideMapView: View {
         .mapStyle(.standard(elevation: .flat, emphasis: .muted,
                             pointsOfInterest: .excludingAll, showsTraffic: false))
         .mapControls {}
-        // Recolour the map into the grey-blue of the palette, keeping its light/dark detail.
-        .overlay {
-            Theme.base
-                .blendMode(.color)
-                .allowsHitTesting(false)
-        }
+        // Apple's dark muted style already sits close to the palette. Don't tint it with a
+        // blend-mode overlay: on device that can hide the map tiles and leave only the arrow.
+        .environment(\.colorScheme, .dark)
         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
         .overlay {
             RoundedRectangle(cornerRadius: Theme.cornerRadius)
